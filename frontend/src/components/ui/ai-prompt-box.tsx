@@ -3,7 +3,7 @@
 import React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ArrowUp, Paperclip, Square, X, StopCircle, Mic, Globe, BrainCog, FolderCode } from "lucide-react";
+import { ArrowUp, Paperclip, Square, X, StopCircle, Mic, Globe, BrainCog, FolderCode, FileUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Utility function for className merging
@@ -168,6 +168,28 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
+// FileDisplay Component
+interface FileDisplayProps {
+  fileName: string;
+  onClear: () => void;
+}
+
+const FileDisplay = ({ fileName, onClear }: FileDisplayProps) => {
+  return (
+    <div className="flex items-center gap-2 bg-[#1F2023] w-fit px-3 py-1 rounded-2xl group border border-[#333333] mb-2">
+      <FileUp className="w-4 h-4 text-[#F3F4F6]" />
+      <span className="text-sm text-[#F3F4F6]">{fileName}</span>
+      <button
+        type="button"
+        onClick={onClear}
+        className="ml-1 p-0.5 rounded-full hover:bg-[#333333] transition-colors"
+      >
+        <X className="w-3 h-3 text-[#F3F4F6]" />
+      </button>
+    </div>
+  );
+};
+
 // VoiceRecorder Component
 interface VoiceRecorderProps {
   isRecording: boolean;
@@ -271,6 +293,7 @@ interface PromptInputContextType {
   setValue: (value: string) => void;
   maxHeight: number | string;
   onSubmit?: () => void;
+  onEnterPress?: () => void;
   disabled?: boolean;
 }
 const PromptInputContext = React.createContext<PromptInputContextType>({
@@ -279,6 +302,7 @@ const PromptInputContext = React.createContext<PromptInputContextType>({
   setValue: () => {},
   maxHeight: 240,
   onSubmit: undefined,
+  onEnterPress: undefined,
   disabled: false,
 });
 function usePromptInput() {
@@ -293,6 +317,7 @@ interface PromptInputProps {
   onValueChange?: (value: string) => void;
   maxHeight?: number | string;
   onSubmit?: () => void;
+  onEnterPress?: () => void;
   children: React.ReactNode;
   className?: string;
   disabled?: boolean;
@@ -309,6 +334,7 @@ const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       value,
       onValueChange,
       onSubmit,
+      onEnterPress,
       children,
       disabled = false,
       onDragOver,
@@ -321,18 +347,20 @@ const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
     const handleChange = (newValue: string) => {
       setInternalValue(newValue);
       onValueChange?.(newValue);
+
     };
     return (
       <TooltipProvider>
         <PromptInputContext.Provider
-          value={{
-            isLoading,
-            value: value ?? internalValue,
-            setValue: onValueChange ?? handleChange,
-            maxHeight,
-            onSubmit,
-            disabled,
-          }}
+                      value={{
+              isLoading,
+              value: value ?? internalValue,
+              setValue: onValueChange ?? handleChange,
+              maxHeight,
+              onSubmit,
+              onEnterPress,
+              disabled,
+            }}
         >
           <div
             ref={ref}
@@ -365,7 +393,7 @@ const PromptInputTextarea: React.FC<PromptInputTextareaProps & React.ComponentPr
   placeholder,
   ...props
 }) => {
-  const { value, setValue, maxHeight, onSubmit, disabled } = usePromptInput();
+  const { value, setValue, maxHeight, onSubmit, onEnterPress, disabled } = usePromptInput();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
@@ -380,6 +408,7 @@ const PromptInputTextarea: React.FC<PromptInputTextareaProps & React.ComponentPr
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      onEnterPress?.();
       onSubmit?.();
     }
     onKeyDown?.(e);
@@ -447,12 +476,13 @@ const CustomDivider: React.FC = () => (
 // Main PromptInputBox Component
 interface PromptInputBoxProps {
   onSend?: (message: string, files?: File[]) => void;
+  onEnterPress?: () => void;
   isLoading?: boolean;
   placeholder?: string;
   className?: string;
 }
 export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref: React.Ref<HTMLDivElement>) => {
-  const { onSend = () => {}, isLoading = false, placeholder = "Type your message here...", className } = props;
+  const { onSend = () => {}, onEnterPress = () => {}, isLoading = false, placeholder = "Type your message here...", className } = props;
   useCustomStyles();
   const [input, setInput] = React.useState("");
   const [files, setFiles] = React.useState<File[]>([]);
@@ -478,20 +508,23 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
   const handleCanvasToggle = () => setShowCanvas((prev) => !prev);
 
   const isImageFile = (file: File) => file.type.startsWith("image/");
+  const isVideoFile = (file: File) => file.type.startsWith("video/");
 
   const processFile = (file: File) => {
-    if (!isImageFile(file)) {
-      console.log("Only image files are allowed");
+    if (!isImageFile(file) && !isVideoFile(file)) {
+      console.log("Only image or video files are allowed");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      console.log("File too large (max 10MB)");
+    if (file.size > 50 * 1024 * 1024) {
+      console.log("File too large (max 50MB)");
       return;
     }
     setFiles([file]);
-    const reader = new FileReader();
-    reader.onload = (e) => setFilePreviews({ [file.name]: e.target?.result as string });
-    reader.readAsDataURL(file);
+    if (isImageFile(file)) {
+      const reader = new FileReader();
+      reader.onload = (e) => setFilePreviews({ [file.name]: e.target?.result as string });
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
@@ -508,8 +541,8 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
     e.preventDefault();
     e.stopPropagation();
     const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter((file) => isImageFile(file));
-    if (imageFiles.length > 0) processFile(imageFiles[0]);
+    const validFiles = files.filter((file) => isImageFile(file) || isVideoFile(file));
+    if (validFiles.length > 0) processFile(validFiles[0]);
   }, []);
 
   const handleRemoveFile = (index: number) => {
@@ -547,10 +580,15 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
       else if (showThink) messagePrefix = "[Think: ";
       else if (showCanvas) messagePrefix = "[Canvas: ";
       const formattedInput = messagePrefix ? `${messagePrefix}${input}]` : input;
+      onEnterPress?.(); // Trigger expansion on submit
       onSend(formattedInput, files);
+      
+      // Only clear files if there's no input content
+      if (!input.trim()) {
+        setFiles([]);
+        setFilePreviews({});
+      }
       setInput("");
-      setFiles([]);
-      setFilePreviews({});
     }
   };
 
@@ -566,6 +604,20 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
 
   return (
     <>
+      {files.length > 0 && !isRecording && (
+        <div className="flex flex-wrap gap-2 mb-2 transition-all duration-300">
+          {files.map((file, index) => (
+            <div key={index} className="relative group">
+              {isVideoFile(file) && (
+                <FileDisplay 
+                  fileName={file.name} 
+                  onClear={() => handleRemoveFile(index)} 
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       <PromptInput
         value={input}
         onValueChange={setInput}
@@ -586,7 +638,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
           <div className="flex flex-wrap gap-2 p-0 pb-1 transition-all duration-300">
             {files.map((file, index) => (
               <div key={index} className="relative group">
-                {file.type.startsWith("image/") && filePreviews[file.name] && (
+                {isImageFile(file) && filePreviews[file.name] && (
                   <div
                     className="w-16 h-16 rounded-xl overflow-hidden cursor-pointer transition-all duration-300"
                     onClick={() => openImageModal(filePreviews[file.name])}
@@ -647,7 +699,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
               isRecording ? "opacity-0 invisible h-0" : "opacity-100 visible"
             )}
           >
-            <PromptInputAction tooltip="Upload image">
+            <PromptInputAction tooltip="Upload file">
               <button
                 onClick={() => uploadInputRef.current?.click()}
                 className="flex h-8 w-8 text-[#9CA3AF] cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-gray-600/30 hover:text-[#D1D5DB]"
@@ -662,7 +714,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
                     if (e.target.files && e.target.files.length > 0) processFile(e.target.files[0]);
                     if (e.target) e.target.value = "";
                   }}
-                  accept="image/*"
+                  accept="image/*,video/*"
                 />
               </button>
             </PromptInputAction>
@@ -696,7 +748,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
                       transition={{ duration: 0.2 }}
                       className="text-xs overflow-hidden whitespace-nowrap text-[#1EAEDB] flex-shrink-0"
                     >
-                      Search
+                      Recap
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -732,7 +784,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
                       transition={{ duration: 0.2 }}
                       className="text-xs overflow-hidden whitespace-nowrap text-[#8B5CF6] flex-shrink-0"
                     >
-                      Think
+                      Productivity
                     </motion.span>
                   )}
                 </AnimatePresence>
