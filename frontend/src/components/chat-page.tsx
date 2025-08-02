@@ -12,7 +12,7 @@ interface Message {
   files?: File[];
 }
 
-const DemoOne = () => {
+export const ChatPage = () => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -99,7 +99,7 @@ const DemoOne = () => {
   };
 
   return (
-    <div className="flex flex-col w-full h-screen bg-[radial-gradient(125%_125%_at_50%_101%,rgba(245,87,2,1)_10.5%,rgba(245,120,2,1)_16%,rgba(245,140,2,1)_17.5%,rgba(245,170,100,1)_25%,rgba(238,174,202,1)_40%,rgba(202,179,214,1)_65%,rgba(148,201,233,1)_100%)]">
+    <div className="flex flex-col w-full h-full">
       {/* Chat Interface */}
       <div className={`flex-1 transition-all duration-1000 ease-in-out ${
         isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -138,5 +138,3 @@ const DemoOne = () => {
     </div>
   );
 };
-
-export { DemoOne };
